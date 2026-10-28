@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Una vez por semana, aunque no cambie nada: las vulnerabilidades aparecen
+  # solas, sin que nadie toque el código.
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  calidad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Sin rutas locales ni correos personales
+        run: |
+          if git grep -nIiE '([a-z]:[\/]+users[\/]|/home/[a-z0-9_-]+/|@(gmail|hotmail|outlook|yahoo)\.)'; then
+            echo "Hay datos personales en el repositorio" && exit 1
+          fi
+      - name: Formato
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+      - run: go build -o triaje ./cmd/triaje
+
+      # Prueba de humo contra las fuentes reales: el proyecto de ejemplo usa
+      # golang.org/x/net 0.7.0, afectado por HTTP/2 Rapid Reset
+      # (CVE-2023-44487), que está en el catálogo KEV. Tiene que salir un P1.
+      - name: Prueba con el proyecto de ejemplo
+        run: |
+          set +e
+          ./triaje -fallar-en p1 -formato html -salida informe-ejemplo.html ejemplo
+          codigo=$?
+          set -e
+          if [ "$codigo" -ne 1 ]; then
+            echo "Esperaba el código 1 (hay un P1) y ha salido $codigo" && exit 1
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: informe-ejemplo
+          path: informe-ejemplo.html
+
+  # triaje se analiza a sí mismo y manda el resultado a code scanning.
+  analizarse:
+    runs-on: ubuntu-latest
+    needs: calidad
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      # Solo go.mod: la carpeta ejemplo/ está llena de vulnerabilidades a propósito.
+      - run: go run ./cmd/triaje -formato sarif -salida triaje.sarif -fallar-en p2 go.mod
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        if: always()
+        with:
+          sarif_file: triaje.sarif
+          category: triaje

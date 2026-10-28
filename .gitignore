@@ -1,0 +1,8 @@
+# binarios
+/triaje
+/triaje.exe
+*.exe
+
+# informes generados
+informe*.html
+*.sarif

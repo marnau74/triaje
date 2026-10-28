@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triaje de vulnerabilidades</title>
+<style>
+:root {
+  --fondo: #f7f7f5; --superficie: #ffffff; --texto: #1c1c1a; --suave: #5f5e5a; --borde: #deddd8;
+  --p1: #b3261e; --p1-fondo: #fbe9e7; --p2: #b25e00; --p2-fondo: #fdf0dd;
+  --p3: #6b5b00; --p3-fondo: #f6f1d5; --p4: #4a5a68; --p4-fondo: #eaeef1;
+  --enlace: #1f5fbf; --foco: #1f5fbf;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #161615; --superficie: #1f1f1d; --texto: #ecebe6; --suave: #a8a7a1; --borde: #34332f;
+    --p1: #ff8a80; --p1-fondo: #3b1a17; --p2: #ffb74d; --p2-fondo: #3a2810;
+    --p3: #e6d36b; --p3-fondo: #33301a; --p4: #a9bccb; --p4-fondo: #222a31;
+    --enlace: #8ab4f8; --foco: #8ab4f8;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--texto);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+.meta { color: var(--suave); margin: 0 0 24px; }
+.avisos { border-left: 3px solid var(--p2); background: var(--p2-fondo); padding: 8px 12px; margin: 0 0 20px; border-radius: 4px; }
+.cifras { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.cifra { background: var(--superficie); border: 1px solid var(--borde); border-radius: 8px; padding: 14px 16px;
+  font: inherit; color: inherit; text-align: left; cursor: pointer; border-top: 4px solid var(--c); }
+.cifra[aria-pressed="false"] { opacity: .45; }
+.cifra b { display: block; font-size: 1.8rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cifra span { color: var(--suave); font-size: .9rem; }
+.cifra:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
+.barra { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+input[type=search] { flex: 1 1 260px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--borde);
+  background: var(--superficie); color: var(--texto); font: inherit; }
+.contador { color: var(--suave); font-size: .9rem; }
+.lista { display: flex; flex-direction: column; gap: 8px; }
+details { background: var(--superficie); border: 1px solid var(--borde); border-radius: 8px; border-left: 4px solid var(--c); }
+summary { list-style: none; cursor: pointer; padding: 12px 14px; display: grid; gap: 4px 16px;
+  grid-template-columns: 64px minmax(0, 2fr) minmax(0, 1.4fr) 70px 80px 50px; align-items: baseline; }
+summary::-webkit-details-marker { display: none; }
+.prio { font-weight: 700; color: var(--c); background: var(--cf); border-radius: 4px; padding: 1px 6px; justify-self: start; font-size: .85rem; }
+.paq { font-weight: 600; overflow-wrap: anywhere; }
+.paq small { font-weight: 400; color: var(--suave); }
+.vid { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .88rem; overflow-wrap: anywhere; }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+.kev { font-weight: 700; color: var(--p1); text-align: right; }
+.cab { padding: 0 14px 6px; font-size: .8rem; color: var(--suave); display: grid; gap: 16px;
+  grid-template-columns: 64px minmax(0, 2fr) minmax(0, 1.4fr) 70px 80px 50px; }
+.cab .num, .cab .kevc { text-align: right; }
+.detalle { padding: 0 14px 14px 94px; color: var(--texto); }
+.detalle p { margin: 4px 0; }
+.detalle dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 8px 0 0; font-size: .9rem; }
+.detalle dt { color: var(--suave); }
+.detalle dd { margin: 0; overflow-wrap: anywhere; }
+a { color: var(--enlace); }
+.motivo { font-weight: 600; }
+.vacio { padding: 32px; text-align: center; color: var(--suave); background: var(--superficie); border-radius: 8px; border: 1px dashed var(--borde); }
+h2 { font-size: 1.15rem; margin: 32px 0 6px; }
+.tabla-plan { overflow-x: auto; background: var(--superficie); border: 1px solid var(--borde); border-radius: 8px; margin-bottom: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--borde); white-space: nowrap; }
+th { color: var(--suave); font-weight: 600; font-size: .8rem; }
+th.num { text-align: right; }
+tbody tr:last-child td { border-bottom: 0; }
+td small { color: var(--suave); }
+footer { margin-top: 40px; color: var(--suave); font-size: .85rem; }
+.p1 { --c: var(--p1); --cf: var(--p1-fondo); } .p2 { --c: var(--p2); --cf: var(--p2-fondo); }
+.p3 { --c: var(--p3); --cf: var(--p3-fondo); } .p4 { --c: var(--p4); --cf: var(--p4-fondo); }
+@media (max-width: 720px) {
+  .cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cab { display: none; }
+  summary { grid-template-columns: auto 1fr; }
+  summary .vid { grid-column: 1 / -1; }
+  summary .num::before, summary .kev::before { content: attr(data-l) " "; color: var(--suave); font-weight: 400; }
+  summary .num, summary .kev { text-align: left; }
+  .detalle { padding-left: 14px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>Triaje de vulnerabilidades</h1>
+  <p class="meta">{{.Paquetes}} paquetes en {{len .Ficheros}} {{plural (len .Ficheros) "fichero" "ficheros"}} · {{fecha .Generado}} · triaje {{.Version}}</p>
+
+  {{with .Avisos}}<div class="avisos" role="note">{{range .}}<p>{{.}}</p>{{end}}</div>{{end}}
+
+  <div class="cifras" role="group" aria-label="Filtrar por prioridad">
+    <button class="cifra p1" data-p="P1" aria-pressed="true"><b>{{index .Resumen "P1"}}</b><span>P1 · urgente: se está explotando</span></button>
+    <button class="cifra p2" data-p="P2" aria-pressed="true"><b>{{index .Resumen "P2"}}</b><span>P2 · alta: explotación probable</span></button>
+    <button class="cifra p3" data-p="P3" aria-pressed="true"><b>{{index .Resumen "P3"}}</b><span>P3 · media</span></button>
+    <button class="cifra p4" data-p="P4" aria-pressed="true"><b>{{index .Resumen "P4"}}</b><span>P4 · baja: puede esperar</span></button>
+  </div>
+
+  {{with .Plan}}
+  <h2>Plan de actualización</h2>
+  <p class="meta">La versión de destino es la menor que arregla todas las vulnerabilidades del paquete con arreglo publicado.</p>
+  <div class="tabla-plan"><table>
+    <thead><tr><th scope="col">Prioridad</th><th scope="col">Paquete</th><th scope="col">Fichero</th><th scope="col">De</th><th scope="col">A</th><th scope="col" class="num">Cierra</th></tr></thead>
+    <tbody>
+    {{range .}}<tr class="{{if eq .PeorPrioridad.String "P1"}}p1{{else if eq .PeorPrioridad.String "P2"}}p2{{else if eq .PeorPrioridad.String "P3"}}p3{{else}}p4{{end}}">
+      <td><span class="prio">{{.PeorPrioridad}}</span></td><td class="paq">{{.Paquete.Nombre}}</td><td>{{.Paquete.Origen}}</td>
+      <td class="vid">{{.Paquete.Version}}</td><td class="vid">{{guion .Hasta}}</td>
+      <td class="num">{{.Arregla}}{{if .SinArreglo}} <small>+{{.SinArreglo}} sin arreglo</small>{{end}}</td></tr>
+    {{end}}
+    </tbody>
+  </table></div>
+  {{end}}
+
+  {{if .Hallazgos}}
+  <h2>Vulnerabilidades</h2>
+  {{if .Ocultos}}<p class="meta">Las {{.Ocultos}} de prioridad más baja no se incluyen en este informe.</p>{{end}}
+  <div class="barra">
+    <input type="search" id="buscar" placeholder="Buscar paquete, CVE o fichero" aria-label="Buscar">
+    <span class="contador" id="contador" aria-live="polite"></span>
+  </div>
+  <div class="cab" aria-hidden="true"><span>Prioridad</span><span>Paquete</span><span>Vulnerabilidad</span><span class="num">CVSS</span><span class="num">EPSS</span><span class="kevc">KEV</span></div>
+  <div class="lista" id="lista">
+    {{range .Hallazgos}}
+    <details class="{{if eq .Prioridad.String "P1"}}p1{{else if eq .Prioridad.String "P2"}}p2{{else if eq .Prioridad.String "P3"}}p3{{else}}p4{{end}}"
+      data-p="{{.Prioridad}}" data-texto="{{.Paquete.Nombre}} {{.ID}} {{range .CVEs}}{{.}} {{end}}{{.Paquete.Origen}} {{.Resumen}}">
+      <summary>
+        <span class="prio">{{.Prioridad}}</span>
+        <span class="paq">{{.Paquete.Nombre}} <small>{{.Paquete.Version}}{{with .Arreglo}} → {{.}}{{end}}</small></span>
+        <span class="vid">{{id .}}</span>
+        <span class="num" data-l="CVSS">{{cvss .}}</span>
+        <span class="num" data-l="EPSS">{{epss .}}</span>
+        <span class="kev" data-l="KEV">{{if .KEV}}sí{{else}}<span style="color:var(--suave);font-weight:400">no</span>{{end}}</span>
+      </summary>
+      <div class="detalle">
+        <p class="motivo">{{.Prioridad.Nombre | printf "Prioridad %s"}}: {{.Motivo}}.</p>
+        <p>{{.Resumen}}</p>
+        <dl>
+          <dt>Arreglo</dt><dd>{{with .Arreglo}}actualizar a {{.}} o posterior{{else}}no hay versión corregida publicada{{end}}</dd>
+          <dt>Fichero</dt><dd>{{.Paquete.Origen}} ({{.Paquete.Ecosistema}})</dd>
+          <dt>Identificadores</dt><dd>{{.ID}}{{range .CVEs}} · {{.}}{{end}}</dd>
+          {{with .VectorCVSS}}<dt>Vector CVSS</dt><dd class="vid">{{.}}</dd>{{end}}
+          {{if .CVSSAproximado}}<dt>CVSS</dt><dd>aproximado a partir de la etiqueta de gravedad de la base de datos</dd>{{end}}
+          {{with .EPSS}}<dt>EPSS</dt><dd>{{pct .Probabilidad}} de probabilidad de explotación en 30 días · percentil {{pct .Percentil}} entre todas las CVE · datos del {{.Fecha}}</dd>{{end}}
+          {{with .KEV}}<dt>KEV</dt><dd>{{.Nombre}} · en el catálogo desde el {{.FechaAlta}}{{if .Ransomware}} · <strong>usada en ransomware</strong>{{end}}</dd>{{end}}
+          <dt>Más información</dt><dd><a href="{{.Enlace}}" rel="noreferrer">{{.Enlace}}</a></dd>
+        </dl>
+      </div>
+    </details>
+    {{end}}
+  </div>
+  <p class="vacio" id="nada" hidden>Ninguna vulnerabilidad coincide con el filtro.</p>
+  {{else if .Ocultos}}
+  <p class="vacio">Ninguna vulnerabilidad de la prioridad pedida o más urgente.</p>
+  {{else}}
+  <p class="vacio">No hay vulnerabilidades conocidas en estas versiones.</p>
+  {{end}}
+
+  <footer>
+    Fuentes: {{range $k, $v := .Fuentes}}{{$v}} · {{end}}
+    Ficheros analizados: {{range $i, $f := .Ficheros}}{{if $i}}, {{end}}{{$f}}{{end}}.
+  </footer>
+</main>
+<script>
+(function () {
+  var activas = { P1: true, P2: true, P3: true, P4: true };
+  var buscar = document.getElementById('buscar');
+  var filas = Array.prototype.slice.call(document.querySelectorAll('#lista details'));
+  var contador = document.getElementById('contador');
+  var nada = document.getElementById('nada');
+  function aplicar() {
+    var q = buscar ? buscar.value.trim().toLowerCase() : '';
+    var n = 0;
+    filas.forEach(function (f) {
+      var ver = activas[f.dataset.p] && (!q || f.dataset.texto.toLowerCase().indexOf(q) >= 0);
+      f.hidden = !ver;
+      if (ver) n++;
+    });
+    if (contador) contador.textContent = n + ' de ' + filas.length;
+    if (nada) nada.hidden = n > 0;
+  }
+  document.querySelectorAll('.cifra').forEach(function (b) {
+    b.addEventListener('click', function () {
+      activas[b.dataset.p] = !activas[b.dataset.p];
+      b.setAttribute('aria-pressed', String(activas[b.dataset.p]));
+      aplicar();
+    });
+  });
+  if (buscar) buscar.addEventListener('input', aplicar);
+  aplicar();
+})();
+</script>
+</body>
+</html>
